@@ -298,12 +298,12 @@ def refresh_metrics() -> None:
         inputs, outputs = 0, 0
         value = 0
         for tx_hash in latest_block["tx"]:
-            tx = get_tx(tx_hash)
-            i = len(tx["vin"])
-            inputs += i
-            o = len(tx["vout"])
-            outputs += o
-            value += sum(o["value"] for o in tx["vout"])
+            if tx = get_tx(tx_hash):
+                i = len(tx["vin"])
+                inputs += i
+                o = len(tx["vout"])
+                outputs += o
+                value += sum(o["value"] for o in tx["vout"])
 
         BITCOIN_LATEST_BLOCK_INPUTS.set(inputs)
         BITCOIN_LATEST_BLOCK_OUTPUTS.set(outputs)
