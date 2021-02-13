@@ -298,7 +298,8 @@ def refresh_metrics() -> None:
         inputs, outputs = 0, 0
         value = 0
         for tx_hash in latest_block["tx"]:
-            if tx = get_tx(tx_hash):
+            tx = get_tx(tx_hash)
+            if tx:
                 i = len(tx["vin"])
                 inputs += i
                 o = len(tx["vout"])
