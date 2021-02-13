@@ -123,12 +123,12 @@ PROCESS_TIME = Counter(
 
 BITCOIN_RPC_SCHEME = os.environ.get("BITCOIN_RPC_SCHEME", "http")
 BITCOIN_RPC_HOST = os.environ.get("BITCOIN_RPC_HOST", "localhost")
-BITCOIN_RPC_PORT = os.environ.get("BITCOIN_RPC_PORT", "8332")
+BITCOIN_RPC_PORT = os.environ.get("BITCOIN_RPC_PORT", "22555")
 BITCOIN_RPC_USER = os.environ.get("BITCOIN_RPC_USER")
 BITCOIN_RPC_PASSWORD = os.environ.get("BITCOIN_RPC_PASSWORD")
 BITCOIN_CONF_PATH = os.environ.get("BITCOIN_CONF_PATH")
 SMART_FEES = [int(f) for f in os.environ.get("SMARTFEE_BLOCKS", "2,3,5,20").split(",")]
-REFRESH_SECONDS = float(os.environ.get("REFRESH_SECONDS", "300"))
+REFRESH_SECONDS = float(os.environ.get("REFRESH_SECONDS", "30"))
 METRICS_ADDR = os.environ.get("METRICS_ADDR", "")  # empty = any address
 METRICS_PORT = int(os.environ.get("METRICS_PORT", "8334"))
 RETRIES = int(os.environ.get("RETRIES", 5))
@@ -199,11 +199,19 @@ def bitcoinrpc(*args) -> RpcResult:
 
 def get_block(block_hash: str):
     try:
-        block = bitcoinrpc("getblock", block_hash, 2)
+        block = bitcoinrpc("getblock", block_hash, True)
     except Exception:
         logger.exception("Failed to retrieve block " + block_hash + " from bitcoind.")
         return None
     return block
+
+def get_tx(tx_hash: str):
+    try:
+        tx = bitcoinrpc("getrawtransaction", tx_hash, True)
+    except Exception:
+        logger.exception("Failed to retrieve tx " + tx_hash + "from bitcoind.")
+        return None
+    return tx
 
 
 def smartfee_gauge(num_blocks: int) -> Gauge:
@@ -225,8 +233,8 @@ def do_smartfee(num_blocks: int) -> None:
 
 
 def refresh_metrics() -> None:
-    uptime = int(bitcoinrpc("uptime"))
-    meminfo = bitcoinrpc("getmemoryinfo", "stats")["locked"]
+    uptime = float(os.popen("awk '{print $1}' /proc/uptime").read())
+    meminfo = bitcoinrpc("getmemoryinfo")["locked"]
     blockchaininfo = bitcoinrpc("getblockchaininfo")
     networkinfo = bitcoinrpc("getnetworkinfo")
     chaintips = len(bitcoinrpc("getchaintips"))
@@ -248,7 +256,8 @@ def refresh_metrics() -> None:
     BITCOIN_HASHPS_1.set(hashps_1)
     BITCOIN_SERVER_VERSION.set(networkinfo["version"])
     BITCOIN_PROTOCOL_VERSION.set(networkinfo["protocolversion"])
-    BITCOIN_SIZE_ON_DISK.set(blockchaininfo["size_on_disk"])
+    # TODO added in 1.14.3; latest release at the time is 1.14.2
+    # BITCOIN_SIZE_ON_DISK.set(blockchaininfo["size_on_disk"])
     BITCOIN_VERIFICATION_PROGRESS.set(blockchaininfo["verificationprogress"])
 
     for smartfee in SMART_FEES:
@@ -283,12 +292,13 @@ def refresh_metrics() -> None:
 
     if latest_block is not None:
         BITCOIN_LATEST_BLOCK_SIZE.set(latest_block["size"])
-        BITCOIN_LATEST_BLOCK_TXS.set(latest_block["nTx"])
+        BITCOIN_LATEST_BLOCK_TXS.set(len(latest_block["tx"]))
         BITCOIN_LATEST_BLOCK_HEIGHT.set(latest_block["height"])
         BITCOIN_LATEST_BLOCK_WEIGHT.set(latest_block["weight"])
         inputs, outputs = 0, 0
         value = 0
-        for tx in latest_block["tx"]:
+        for tx_hash in latest_block["tx"]:
+            tx = get_tx(tx_hash)
             i = len(tx["vin"])
             inputs += i
             o = len(tx["vout"])

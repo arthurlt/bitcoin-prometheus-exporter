@@ -1,4 +1,6 @@
-# Bitcoin Core Prometheus Exporter
+# Dogecoin Core Prometheus Exporter
+
+# Forked version modified to work with dogecoin
 
 A [Prometheus] exporter for [Bitcoin Core] nodes written in python and packaged for running as a container.
 
